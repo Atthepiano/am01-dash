@@ -1,48 +1,44 @@
 # am01-dash
 
-让 **Ayaneo AM01S** 迷你 PC 自带的 960×400 副屏在 Arch Linux 上跑起来，并把它变成一块可玩的"内容副屏"：能放 turing 系统监控主题、图片/GIF/视频/网络流，甚至直接跑 htop / btop / cmatrix 等终端程序。
+A content engine for the **Ayaneo AM01S** mini PC built-in 960×400 USB sub-screen on Arch Linux.
 
-![status: working on Arch + kernel 7.x](https://img.shields.io/badge/status-working-brightgreen)
-![license: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-blue)
+Plays turing-smart-screen system monitor themes, static images, animated GIFs, local videos, network streams (HTTP / RTSP / HLS / YouTube via yt-dlp), and arbitrary terminal programs (htop, btop, cava, cmatrix, ...) on the sub-screen, with a Tk GUI for managing a mixed playlist.
 
----
-
-## 这是什么
-
-Ayaneo AM01S 自带一块 960×400 横屏的内置小副屏，硬件由 MacroSilicon MS912x USB→显示芯片驱动 (`345f:9133`)，Windows 厂商驱动能用，**Linux 上原本无法正常工作**：
-
-- 内核里的 `ms912x` 驱动不认识 960×400 这个非标分辨率
-- 副屏 EDID 是个"假货"（写的是另一台 4K 显示器的 EDID）
-- 即使硬塞数据上去也会立刻闪烁、撕裂、黑屏
-
-这个项目把整套问题彻底打通：
-
-1. 给 `ms912x` 内核驱动加了 960×400 mode 支持 + 心跳防熄屏 + 现代内核兼容
-2. 让副屏在系统层面**完全独占**（被 udev 隔离出 KWin 控制，避免鼠标飞过去）
-3. 在副屏上跑各种内容：
-   - turing-smart-screen-python 全部 78 个主题（自适应缩放）
-   - 静态图片 / GIF
-   - 本地视频 / HTTP 直链 / RTSP / YouTube 等流媒体（自适应帧率 + ffmpeg 解码）
-   - 任意终端 TUI 程序（htop / btop / cava / cmatrix / fastfetch ...）
-   - 多源轮播 + GUI 编辑
+[简体中文](#中文说明) · [English](#english)
 
 ---
 
-## 三个 repo 各干什么
+## English
 
-这个项目分成 3 个仓库（每个对应一个上游 fork 或原创）。**安装顺序很重要**：
+### Background
 
-| Repo | 上游 | 在这个生态里负责 |
+The AM01S ships with an integrated 960×400 landscape sub-screen driven over USB by a MacroSilicon MS912x chip (USB ID `345f:9133`). The Windows vendor driver works out of the box; on Linux the situation is harder:
+
+- The mainline `ms912x` kernel driver does not know about the 960×400 mode used by the panel.
+- The chip exposes a junk EDID (it advertises a 4K display).
+- Naively pushing frames at the panel produces flicker, tearing, or a blank screen.
+
+This project addresses each of those and adds a user-space stack on top so the sub-screen can be used for monitoring dashboards, images, video, streams, and TUI programs.
+
+### Repository layout
+
+The project is split across three repositories. Two of them are forks of upstream projects with patches applied on an `am01s` branch.
+
+| Repository | Upstream | Role |
 |---|---|---|
-| **[`Atthepiano/ms912x` (am01s 分支)](https://github.com/Atthepiano/ms912x/tree/am01s)** | [rhgndf/ms912x](https://github.com/rhgndf/ms912x) | Linux 内核驱动：让 ms912x USB 显示芯片支持 AM01S 的 960×400 mode |
-| **[`Atthepiano/turing-smart-screen-python` (am01s 分支)](https://github.com/Atthepiano/turing-smart-screen-python/tree/am01s)** | [mathoudebine/turing-smart-screen-python](https://github.com/mathoudebine/turing-smart-screen-python) | 主题渲染引擎：内含我们写的 `LcdAm01s` 后端 + `AM01S_demo` 主题 |
-| **`Atthepiano/am01-dash` (你正在看的)** | （原创） | GUI 主程序 + 内容引擎 + 多源播放器 |
+| [`Atthepiano/ms912x`](https://github.com/Atthepiano/ms912x/tree/am01s) (`am01s`) | [rhgndf/ms912x](https://github.com/rhgndf/ms912x) | Kernel driver patches: new mode `0xae00` (960×400@60), heartbeat work, modern kernel compatibility |
+| [`Atthepiano/turing-smart-screen-python`](https://github.com/Atthepiano/turing-smart-screen-python/tree/am01s) (`am01s`) | [mathoudebine/turing-smart-screen-python](https://github.com/mathoudebine/turing-smart-screen-python) | Adds an `LcdAm01s` backend bridging PIL images to the ms912x DRM dumb buffer, plus an `AM01S_demo` theme |
+| `Atthepiano/am01-dash` (this repository) | — | GUI picker, content runner, and source implementations (image / gif / video / stream / terminal / playlist) |
 
----
+### Requirements
 
-## 安装（Arch Linux）
+- Arch Linux with a recent kernel (tested on 7.x)
+- An Ayaneo AM01S with the built-in 960×400 sub-screen functional under Windows
+- Python 3.11+
 
-### 0. 系统依赖
+### Installation
+
+#### 0. System packages
 
 ```bash
 sudo pacman -S --needed \
@@ -53,163 +49,193 @@ sudo pacman -S --needed \
     tk sv-ttk tkinter-tooltip \
     ffmpeg yt-dlp \
     psmisc polkit
-
-# 视频/终端可选增强（按需）
-# sudo pacman -S htop btop cava cmatrix nvtop fastfetch \
-#                figlet lolcat cowsay fortune-mod \
-#                asciiquarium pipes.sh tty-clock peaclock unimatrix
 ```
 
+Python packages not in the official repositories:
+
 ```bash
-# pip 装 pacman 没有的
 sudo python3 -m pip install --break-system-packages \
-    uptime ping3 GPUtil pyamdgpuinfo ruamel.yaml setuptools sv-ttk tkinter-tooltip
+    uptime ping3 GPUtil pyamdgpuinfo ruamel.yaml setuptools \
+    sv-ttk tkinter-tooltip
 ```
 
-### 1. 装内核驱动（用我们 fork 的 am01s 分支）
+Optional terminal applications used by the picker presets:
 
 ```bash
-cd ~/Projects   # 或你想放的位置
+sudo pacman -S --needed \
+    htop btop cava cmatrix nvtop fastfetch \
+    figlet lolcat cowsay fortune-mod \
+    asciiquarium pipes.sh tty-clock peaclock unimatrix
+```
+
+#### 1. Kernel driver
+
+```bash
+cd ~/Projects                    # or wherever you keep source trees
 git clone -b am01s https://github.com/Atthepiano/ms912x.git
 cd ms912x
 sudo bash install-dkms.sh
-# 拔插 USB 或重启让模块加载
 sudo modprobe ms912x
-lsmod | grep ms912x   # 应该看到
+lsmod | grep ms912x              # confirm loaded
 ```
 
-### 2. 装 udev 规则（把副屏从 KWin 隔离）
+#### 2. udev rule to detach the sub-screen from the desktop compositor
+
+Without this step KWin/Mutter will try to use the sub-screen as an extended display.
 
 ```bash
-# 建专用用户组
 sudo groupadd -f am01dash
-sudo usermod -aG am01dash $USER
+sudo usermod -aG am01dash "$USER"        # log out and back in for group to take effect
 
 cd ~/Projects
 git clone https://github.com/Atthepiano/am01-dash.git
 cd am01-dash
 sudo cp udev/99-am01s-isolate.rules /etc/udev/rules.d/
 sudo udevadm control --reload
-# 重新插拔副屏 USB 接口让规则生效（或重启）
-sudo bash -c 'echo "1-4.3:1.3" > /sys/bus/usb/drivers/ms912x/unbind
-              sleep 1
-              echo "1-4.3:1.3" > /sys/bus/usb/drivers/ms912x/bind'
-# 注意：1-4.3:1.3 这个路径每台机器可能不同，用 lsusb -t 找你这台
+
+# Trigger a re-bind so the rule applies without a reboot.
+# The interface path (1-4.3:1.3 below) may differ on your machine; check with `lsusb -t`.
+INTF=$(lsusb -t | grep -B1 ms912x | head -1 | sed 's/.*Port \([0-9]*\).*/1-\1.3/')
+sudo sh -c "echo $INTF > /sys/bus/usb/drivers/ms912x/unbind; \
+            sleep 1; \
+            echo $INTF > /sys/bus/usb/drivers/ms912x/bind"
 ```
 
-### 3. 装 turing 主题引擎
+#### 3. turing theme engine
 
 ```bash
 cd ~/Projects
 git clone -b am01s https://github.com/Atthepiano/turing-smart-screen-python.git
 ```
 
-### 4. 配置 + 跑
+#### 4. Configure am01-dash
 
 ```bash
-# 告诉 am01_dash 在哪找 turing
+# Tell am01-dash where the turing fork lives.
+# Add this to ~/.profile or ~/.bashrc to persist.
 export AM01_DASH_TURING_DIR="$HOME/Projects/turing-smart-screen-python"
-# 永久写到 ~/.profile 或 ~/.bashrc
 
 cd ~/Projects/am01-dash
 
-# 装免密 sudo（picker 的"应用到副屏"按钮要用 root 杀/起 main.py）
+# First, start the picker once so it generates the helper scripts under tools/.
+python3 am01_dash_picker.py
+# (close it)
+
+# Then install the passwordless sudo rule so the picker can apply/stop
+# without a password prompt every time.
 sudo bash tools/install-nopasswd.sh
-# 第一次跑 picker 会自动生成 helper 脚本，
-# 跑完后再跑一次 install-nopasswd.sh 才会生效
 
-# 装应用快捷方式（KDE/GNOME 应用菜单里能搜到）
+# Optional: register a desktop entry in the application menu.
 bash desktop/install-desktop.sh
+```
 
-# 启动！
+### Usage
+
+Launch the picker:
+
+```bash
 python3 am01_dash_picker.py
 ```
 
----
+Two tabs:
 
-## 用法
+- **Themes (turing)** — browse all 78 turing-smart-screen themes, preview them, apply to the sub-screen.
+- **Media** — manage a mixed playlist of any of the supported source types below. Changes are auto-saved to `data/current_playlist.json`.
 
-启动 picker 后看到两个标签页：
+#### Source types
 
-- **主题 (turing)**：78 个 turing 系统监控主题，点击预览，"应用到副屏"
-- **媒体 (图片/GIF)**：图片/GIF/视频/流/终端混合播放列表
-
-### 媒体源支持
-
-| 类型 | 支持格式 | 备注 |
+| Kind | Formats | Notes |
 |---|---|---|
-| 图片 | PNG / JPG / WebP / BMP / TIFF | |
-| GIF | GIF / animated WebP / APNG | 按原 GIF 时序播放 |
-| 视频 | 任何 ffmpeg 能解的格式 | 自适应帧率（探测原片 fps，上限 60） |
-| 流 | HTTP 直链 / RTSP / RTMP / HLS / YouTube / Bilibili 等 | YouTube 需要 cookies（见下） |
-| 终端 | 任意 TUI 程序 | 在隐藏 PTY 里跑，pyte 解析 + Pillow 渲染 |
+| Image | PNG, JPG, WebP, BMP, TIFF | |
+| GIF | GIF, animated WebP, APNG | Plays at the encoded per-frame timing |
+| Video | Anything ffmpeg can decode | Frame rate is auto-detected via ffprobe and capped at 60 fps |
+| Stream | HTTP direct links, RTSP, RTMP, HLS, YouTube, and other yt-dlp-supported sites | YouTube requires cookies (see below) |
+| Terminal | Any TUI program | Runs in a hidden PTY, parsed by pyte and rendered with Pillow |
 
-### 缩放模式
+#### Fit modes
 
-每个媒体源可选三种 fit：
+Each item can choose one of:
 
-- `contain`：等比缩放铺满长边，留黑边（默认）
-- `cover`：等比缩放铺满短边，超出裁切
-- `stretch`：拉伸到 960×400（变形）
+- `contain` (default) — scale uniformly to fit, with black bars on the short side
+- `cover` — scale uniformly to fill, cropping the long side
+- `stretch` — scale non-uniformly to exactly 960×400
 
-### YouTube 等需要 cookies
+#### YouTube cookies
 
-YouTube 反爬要求登录。导出 cookies 一次性即可（之后失效再导一次）：
+YouTube requires a logged-in cookie jar. Export one:
 
 ```bash
 yt-dlp --cookies-from-browser firefox \
-       --cookies $HOME/Projects/am01-dash/data/youtube_cookies.txt \
+       --cookies "$HOME/Projects/am01-dash/data/youtube_cookies.txt" \
        --skip-download 'https://www.youtube.com/'
 ```
 
-am01-dash 启动时自动检测这个 cookies 文件，找到就用。
+am01-dash automatically uses this file if it exists. Re-export when cookies expire.
 
-### 终端预设
-
-picker → "+ 终端命令"按钮 → 内置 12 个预设：htop / btop / bashtop / nvtop / cava / cmatrix / unimatrix / asciiquarium / pipes.sh / tty-clock / peaclock / fastfetch。每个都已经调好推荐字号。
-
----
-
-## 架构（一图流）
+### Architecture
 
 ```
-┌─────────────┐   ┌──────────────────┐
-│ picker GUI  │   │ am01_dash.runner │ ← 主循环：拉 source.next_frame() → fit_to → 推帧
-│  (用户态)   │   │   (root 跑)       │
-└──────┬──────┘   └────────┬─────────┘
-       │ pkexec helper      │
-       ▼                    ▼
+┌─────────────┐    ┌──────────────────┐
+│ picker GUI  │    │ am01_dash.runner │   main loop: pull source.next_frame()
+│  (user)     │    │   (root)          │   → fit_to → flip to sub-screen
+└──────┬──────┘    └────────┬─────────┘
+       │ pkexec helper       │
+       ▼                     ▼
 ┌─────────────────────────────────────┐
-│  am01_dash/sources/                 │
-│    image / gif / video / stream     │
-│    terminal / playlist              │
+│  am01_dash/sources/                 │   image · gif · video · stream
+│                                     │   terminal · playlist
 └────────────────┬────────────────────┘
                  │ PIL.Image
                  ▼
 ┌─────────────────────────────────────┐
-│ turing-smart-screen-python          │
-│   library/lcd/lcd_am01s.py          │ ← 桥接：PIL Image → DRM dumb buffer
+│ turing-smart-screen-python          │   bridge: PIL image →
+│   library/lcd/lcd_am01s.py          │   DRM dumb buffer
 └────────────────┬────────────────────┘
                  │ DRM atomic commit
                  ▼
 ┌─────────────────────────────────────┐
-│  ms912x kernel driver (DKMS)        │ ← 自定义心跳防熄屏 + 0xAE00 mode
+│  ms912x kernel driver (DKMS)        │   heartbeat work, mode 0xae00
 └────────────────┬────────────────────┘
                  │ USB bulk OUT (YUV422)
                  ▼
-            [ AM01S 副屏 960x400 ]
+            Ayaneo AM01S 960×400
 ```
 
+### Acknowledgements
+
+- [rhgndf/ms912x](https://github.com/rhgndf/ms912x) for the original Linux kernel driver.
+- [mathoudebine/turing-smart-screen-python](https://github.com/mathoudebine/turing-smart-screen-python) for the theme rendering engine and the bundled themes.
+
+### License
+
+GPL-3.0. The project inherits this license from turing-smart-screen-python, which it loads at runtime. See [LICENSE](LICENSE).
+
 ---
 
-## 致谢
+## 中文说明
 
-- **[rhgndf/ms912x](https://github.com/rhgndf/ms912x)** —— 原始 Linux 内核驱动作者
-- **[mathoudebine/turing-smart-screen-python](https://github.com/mathoudebine/turing-smart-screen-python)** —— 主题渲染引擎和 78 个开箱即用的主题
-- 整个开发过程是和 [OpenCode](https://github.com/anomalyco/opencode) AI 协作完成的
+### 背景
 
----
+Ayaneo AM01S 自带一块 960×400 横屏的内置副屏，由 MacroSilicon MS912x USB 显示芯片驱动 (`345f:9133`)。Windows 厂商驱动开箱即用；在 Linux 上需要解决几个问题：
 
-## License
+- 上游 `ms912x` 内核驱动不认识 960×400 这个非标分辨率
+- 芯片暴露的 EDID 是错的（写的是另一台 4K 显示器）
+- 直接推帧会导致闪烁、撕裂或黑屏
 
-GPL-3.0 —— 因为运行时依赖 turing-smart-screen-python (GPL-3)。详见 [LICENSE](LICENSE)。
+本项目解决这些底层问题，并在其上提供一个用户态内容栈，支持把副屏用作监控仪表盘 / 图片 / 视频 / 流媒体 / 终端程序的显示设备。
+
+### 仓库结构
+
+| 仓库 | 上游 | 角色 |
+|---|---|---|
+| [`Atthepiano/ms912x`](https://github.com/Atthepiano/ms912x/tree/am01s) (`am01s`) | [rhgndf/ms912x](https://github.com/rhgndf/ms912x) | 内核驱动补丁：新增 mode `0xae00` (960×400@60)、心跳防熄屏、新内核兼容 |
+| [`Atthepiano/turing-smart-screen-python`](https://github.com/Atthepiano/turing-smart-screen-python/tree/am01s) (`am01s`) | [mathoudebine/turing-smart-screen-python](https://github.com/mathoudebine/turing-smart-screen-python) | 新增 `LcdAm01s` 后端，把 PIL 图像桥接到 ms912x 的 DRM dumb buffer；附带 `AM01S_demo` 主题 |
+| `Atthepiano/am01-dash` (本仓库) | — | GUI picker、内容 runner、各类内容源实现（image / gif / video / stream / terminal / playlist） |
+
+### 安装
+
+完整安装步骤、用法、架构图与上面英文版完全一致。中文用户可以直接对照上文操作；命令、路径、参数都不需要本地化。
+
+### License
+
+GPL-3.0。详见 [LICENSE](LICENSE)。
