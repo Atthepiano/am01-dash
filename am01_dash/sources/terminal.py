@@ -37,7 +37,7 @@ logger = logging.getLogger("am01_dash.terminal")
 _FONT_CANDIDATES = [
     "/usr/share/fonts/TTF/JetBrainsMono-Regular.ttf",
     "/usr/share/fonts/jetbrains-mono/JetBrainsMono-Regular.ttf",
-    # 用户可能装了 turing-smart-screen-python 在不同位置；通过环境变量找
+    # turing fork 自带的字体路径（由环境变量定位）
     *([] if not os.environ.get("AM01_DASH_TURING_DIR")
         else [os.path.join(os.environ["AM01_DASH_TURING_DIR"],
                            "res/fonts/jetbrains-mono/JetBrainsMono-Regular.ttf")]),

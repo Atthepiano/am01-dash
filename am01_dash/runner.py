@@ -96,8 +96,8 @@ FIT_MODES = ("contain", "cover", "stretch")
 
 # ============ Runner ============
 
-# 通过 turing 的 LcdAm01s 拿底层。需要 turing 在 PYTHONPATH 里。
-# 路径用环境变量配置；helper 脚本会在 root 启动时设好。
+# 通过 turing 的 LcdAm01s 拿底层。
+# 路径由 AM01_DASH_TURING_DIR 环境变量提供（helper 脚本启动时设置）。
 def _load_lcd():
     """惰性 import LcdAm01s，避免 import 阶段就要求 turing 装好。"""
     turing_dir = os.environ.get("AM01_DASH_TURING_DIR")
@@ -107,10 +107,9 @@ def _load_lcd():
         from library.lcd.lcd_am01s import LcdAm01s
     except ImportError as e:
         raise RuntimeError(
-            "找不到 LcdAm01s。请设置 AM01_DASH_TURING_DIR 环境变量指向 "
-            "turing-smart-screen-python (am01s 分支) 的目录。\n"
-            f"当前 AM01_DASH_TURING_DIR={turing_dir!r}\n"
-            f"原始错误: {e}"
+            "Cannot import LcdAm01s. Set AM01_DASH_TURING_DIR to the "
+            "turing-smart-screen-python (am01s branch) checkout directory.\n"
+            f"Current AM01_DASH_TURING_DIR={turing_dir!r}\nUnderlying error: {e}"
         ) from e
     return LcdAm01s
 
