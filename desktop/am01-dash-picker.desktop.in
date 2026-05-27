@@ -1,0 +1,16 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=AM01S Dash Picker
+Name[zh_CN]=AM01S 副屏主题切换
+GenericName=Sub-screen Theme Picker
+GenericName[zh_CN]=副屏主题选择器
+Comment=Pick and apply themes to the Ayaneo AM01S sub-screen
+Comment[zh_CN]=为 Ayaneo AM01S 副屏选择并应用监控主题
+Exec=@AM01_DASH_DIR@/desktop/run-picker.sh
+Icon=@AM01_DASH_DIR@/desktop/am01-dash-picker.png
+Terminal=false
+Categories=System;Monitor;Utility;
+Keywords=AM01S;ayaneo;subscreen;monitor;theme;turing;
+StartupNotify=true
+SingleMainWindow=true

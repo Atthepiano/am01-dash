@@ -1,0 +1,17 @@
+# AM01S 副屏独占规则
+# 把 ms912x 的 DRM card 节点（USB 路径形如 ...:1.3）从主 seat 隔离，
+# 改属主到 am01dash 组，并清除 ID_SEAT 让 KWin 不接管它。
+#
+# 部署：
+#   sudo cp 99-am01s-isolate.rules /etc/udev/rules.d/
+#   sudo udevadm control --reload
+#   sudo udevadm trigger -s drm
+
+# 1) 匹配 ms912x 驱动下的 DRM card 节点
+#    KERNEL=="card*" 匹配 /dev/dri/cardN
+#    SUBSYSTEM=="drm" 限定 DRM 子系统
+#    DRIVERS=="ms912x" 限定父设备绑了 ms912x 驱动
+SUBSYSTEM=="drm", KERNEL=="card*", DRIVERS=="ms912x", \
+    GROUP="am01dash", MODE="0660", \
+    TAG-="seat", TAG-="master-of-seat", \
+    ENV{ID_SEAT}="", ENV{ID_AUTOSEAT}=""

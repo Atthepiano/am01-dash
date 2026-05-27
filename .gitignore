@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+
+# 运行时数据（含 cookies、播放列表等用户私有内容）
+data/
+!data/.gitkeep
+
+# Picker 自动生成的 helper（包含本地路径，每个用户不同）
+tools/am01_apply_helper.sh
+tools/am01_stop_helper.sh
+
+# 日志
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+.DS_Store
