@@ -47,7 +47,6 @@ def _resolve_turing_dir() -> Path:
     for c in candidates:
         if (c / "main.py").is_file():
             return c
-    # 兜底
     return AM01_DASH_DIR.parent / "turing-smart-screen-python"
 
 
@@ -238,11 +237,13 @@ def _ensure_helpers():
     # Unified apply helper：根据第 1 个参数选不同启动逻辑
     #   $1 == "theme"             跑 turing main.py（用 config.yaml 里设的 THEME）
     #   $1 == "playlist" $2=path  跑 am01_dash.runner --playlist $2
-    # 把启动 picker 那一刻的用户 UID 烧进 helper，
-    # 这样 helper（root 跑）也能找到 PipeWire/PulseAudio socket 给 cava 这类
-    # 需要音频的子进程用。
+    # 把启动 picker 那一刻的用户 UID 和 HOME 烧进 helper，
+    # 这样 helper（root 跑）也能：
+    #   - 找到 PipeWire/PulseAudio socket（cava 等音频应用）
+    #   - 读到用户自己的 ~/.config/<app>/config (cava, btop, htop 等)
     import os as _os
     user_uid = _os.getuid()
+    user_home = _os.path.expanduser("~")
 
     apply_content = (
         "#!/bin/bash\n"
@@ -253,16 +254,21 @@ def _ensure_helpers():
         f"TURING_DIR='{TURING_DIR}'\n"
         f"AM01_DASH_DIR='{AM01_DASH_DIR}'\n"
         f"USER_UID='{user_uid}'\n"
+        f"USER_HOME='{user_home}'\n"
         "LOG_FILE=\"$TURING_DIR/main.am01s.log\"\n"
         "MODE=\"${1:-theme}\"\n"
         "PLAYLIST_PATH=\"${2:-}\"\n"
         + _KILL_BLOCK +
         "echo '' >> \"$LOG_FILE\"\n"
         "echo \"===== $(date '+%F %T') am01_apply_helper start (mode=$MODE) =====\" >> \"$LOG_FILE\"\n"
-        # 暴露用户 audio / runtime 环境给子进程（cava 等需要 PipeWire/Pulse）
+        # 暴露用户 runtime / config 路径给子进程：
+        #   - audio: PipeWire/PulseAudio socket (cava 等)
+        #   - config: HOME 让 cava/btop/htop 等读到 ~/.config/*/config
         "export XDG_RUNTIME_DIR=\"/run/user/$USER_UID\"\n"
         "export PULSE_RUNTIME_PATH=\"$XDG_RUNTIME_DIR/pulse\"\n"
-        "# Pipewire 不需要额外环境变量，默认会从 XDG_RUNTIME_DIR 找 pipewire-0\n"
+        "export HOME=\"$USER_HOME\"\n"
+        "export XDG_CONFIG_HOME=\"$USER_HOME/.config\"\n"
+        "export XDG_DATA_HOME=\"$USER_HOME/.local/share\"\n"
         "export PYTHONPATH=\"${AM01_DASH_DIR}${PYTHONPATH:+:$PYTHONPATH}\"\n"
         "case \"$MODE\" in\n"
         "  theme)\n"
